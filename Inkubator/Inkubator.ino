@@ -1,9 +1,21 @@
+#define BWater 3 // Пін датчика наявності води
+#define BStop 41 // Пін кнопки СТОП
+
+#define Pservo 5  //Пін на якій підключена серво
+
+#define CLK 31  //Пін на якій підключено CLK від енкодера
+#define DT 33  //Пін на якій підключено DT від енкодера
+#define SW 35  //Пін на якій підключено SW від енкодера
+
+#define Ds18b20 4  //Пін на якій підключено ds18b20
+#define Termistor A13  //Пін на якій підключено термістор
+
+const char *filename = "/Test.txt";  // Назва файлу в якому лежить json
+const char *FileDataName = "/Data.txt";  // Назва файлу в якому лежить json з змінними
+
 #include <LiquidCrystal.h>            //  Подключаем библиотеку LiquidCrystal для работы с LCD дисплеем
 LiquidCrystal lcd(16,17,23,25,27,29); //  Объявляем объект библиотеки, указывая выводы дисплея (RS,E,D4,D5,D6,D7)
 
-#define CLK 31
-#define DT 33
-#define SW 35
 #include "GyverEncoder.h"  //  Подключаем библиотеку для работы с енкодером
 Encoder enc1(CLK, DT, SW);
 int value = 0;
@@ -16,17 +28,14 @@ const int PIN_CHIP_SELECT = 53; // Ініціалізація бібліотек
 String input; // Строка в якій буде зберігатись файл json
 String inputJson; // Строка в якій буде зберігатись файл json
 String inputData; // Строка в якій буде зберігатись файл jsonData
-const char *filename = "/Test.txt";  // Назва файлу в якому лежить json
-const char *FileDataName = "/Data.txt";  // Назва файлу в якому лежить json з змінними
 
 #include <Servo.h> //  Подключаем библиотеку для работы с серво
 Servo Lservo;
 int pos;//Позиція серво
 
-#define ONE_WIRE_BUS 4  //Пін на якій підключено ds18b20
 #include <OneWire.h>  //  Подключаем библиотеку для работы по одному піну
 #include <DallasTemperature.h>  //  Подключаем библиотеку для работы с ds18b20
-OneWire oneWire(ONE_WIRE_BUS);
+OneWire oneWire(Ds18b20);
 DallasTemperature sensors(&oneWire);
 DeviceAddress *sensorsUnique;
 int countSensors;
@@ -36,7 +45,6 @@ int temperature[10];
 #define SERIAL_R 4700 // сопротивление последовательного резистора
 #define THERMISTOR_R 100000 // номинальное сопротивления термистора, 100 кОм
 #define NOMINAL_T 25 // номинальная температура (при которой TR = 100 кОм)
-const byte tempPin = A13;
 int termis;
 
 #include "SparkFunHTU21D.h"   // Подключаем библиотеку SparkFunHTU21D
@@ -51,8 +59,6 @@ MicroDS3231 rtc;
 long last_time;
 boolean time_flag;
 boolean Water;
-#define BWater 3 // Пін датчика наявності води
-#define BStop 41 // Пін кнопки СТОП
 int YMonth[12] = {31,28,31,30,31,30,31,31,30,31,30,31}; //Вказано скільки днів в кожному місяці 
 boolean mode = 0;//Змінна для запису прочитаного з json
 int Month = 0;//Змінна для запису прочитаного з json
@@ -66,128 +72,9 @@ int IMin = 0;//Змінна для запису хвилин які пройшл
 int menu = 0; //Змінна яка використовується в показі меню
 int error;    //Змінна яка використовується в показі меню
 
-byte LH[8] = {  //Іконка лотка поверненого горизонтально
-  0b00000,
-  0b00000,
-  0b00000,
-  0b00000,
-  0b11111,
-  0b01010,
-  0b00000,
-  0b00000
-};
-byte LL[8] = {  //Іконка лотка поверненого в ліво
-  0b00000,
-  0b00000,
-  0b00000,
-  0b11000,
-  0b01110,
-  0b00011,
-  0b00000,
-  0b00000
-};
-byte LR[8] = {  //Іконка лотка поверненого в право
-  0b00000,
-  0b00000,
-  0b00000,
-  0b00011,
-  0b01110,
-  0b11000,
-  0b00000,
-  0b00000
-};
-byte Gr[8] = {  //Іконка градуса
-  0b01000,
-  0b10100,
-  0b01000,
-  0b00000,
-  0b00000,
-  0b00000,
-  0b00000,
-  0b00000
-};
-byte Setting[8] = {  //Іконка настройок
-  0b00000,
-  0b00000,
-  0b10101,
-  0b01110,
-  0b11011,
-  0b01110,
-  0b10101,
-  0b00000
-};
-byte WaterOff[8] = {  //Іконка "Вода закінчується"
-  0b00000,
-  0b00000,
-  0b10001,
-  0b10001,
-  0b10001,
-  0b10001,
-  0b01110,
-  0b00000
-};
-byte WaterOn[8] = {  //Іконка "Вода є"
-  0b00000,
-  0b00000,
-  0b10001,
-  0b11111,
-  0b11111,
-  0b11111,
-  0b01110,
-  0b00000
-};
-
-
-void jsonFile(const char *filename,const char *fileinput) {  // Функція запису json в input
-  input = "";
-  File file = SD.open(filename);    // Відкрити файл
-  if (!file) {     //При помилці читання файлу 
-    Serial.println(F("Помилка читання файлу"));  // Вивести в серіал "Помилка читання файлу"
-    return;
-  }
-
-  while (file.available()) {  // Якщо файл відкритий
-    String inputdop = String((char)file.read());   // Читати по кусочку
-    input = input + inputdop;   // Склеїти прочитані кусочки і записати в input
-  }
-  if(fileinput=="Data"){
-    inputData = input;
-  }
-  //Serial.print(input);
-  Serial.println();
-  file.close();   // Закрити файл
-}
-
-void DataWrite(const char *FileDataName,boolean i) {  // Функція запису json в файл Data
-  SD.remove("/Data.txt");
-  File file = SD.open(FileDataName, FILE_WRITE);    // Відкрити файл
-  if (!file) {     //При помилці читання файлу 
-    Serial.println(F("Помилка читання файлу WRITE"));  // Вивести в серіал "Помилка читання файлу"
-    return;
-  }
-  if(i == 1){
-    file.println("{\"mode\":" + String(i) + ",\"Month\":" + String(rtc.getMonth()) + ",\"Day\":" + String(rtc.getDate()) + ",\"Hours\":" + String(rtc.getHours()) + ",\"Min\":" + String(rtc.getMinutes()) + "}");
-    file.close();   // Закрити файл
-  }else{
-    file.println("{\"mode\":" + String(i) + ",\"Month\":0,\"Day\":0,\"Hours\":0,\"Min\":0}");
-    file.close();   // Закрити файл
-  }
-    
-}
-
-void DataJSON(const char *FileDataName) {    // Функція читання jsonData
-  DynamicJsonBuffer jsonBuffer;
-  jsonFile(FileDataName,"Data");// Перейти до функції запису json в inputData
-  JsonObject& rootData = jsonBuffer.parseObject(inputData);
-  delay(50);
-  mode = rootData[String("mode")];
-  Month = rootData[String("Month")];
-  Day = rootData[String("Day")];
-  Hours = rootData[String("Hours")];
-  Min = rootData[String("Min")];
-}
 
 void Time (){   //Функція обрахунку часу
+  
   if((rtc.getMonth()-Month)<0){
     IDay = (YMonth[Month-1]-Day) + rtc.getDate();
   }else{
@@ -334,6 +221,7 @@ void beginAll() {
     DynamicJsonBuffer jsonBuffer;
     while (!SD.begin()) {      // При помилці ініціалізувати SD бібліотеку
     Serial.println(F("Помилка ініціалізації SD бібліотеки"));  // Вивести в серіал "Помилка ініціалізації SD бібліотеки"
+    Iicons();  //Функція ініціалізації іконок
     delay(100);
   }
 }
@@ -358,7 +246,7 @@ void ds18b20() {
 }
 
 void termistor() {
-  int t = analogRead( tempPin );
+  int t = analogRead( Termistor );
   float tr = 1023.0 / t - 1;
   tr = SERIAL_R / tr;
 
@@ -376,21 +264,14 @@ void termistor() {
 
 void setup() {
   beginAll();  //Функція ініціалізації всього
+  DataJSON(FileDataName);  // Функція читання jsonData
   Time ();  //Функція обрахунку часу (працює після читання jsonData)
   //  rtc.setTime(BUILD_SEC, BUILD_MIN, BUILD_HOUR, BUILD_DAY, BUILD_MONTH, BUILD_YEAR);  //Розкоментувати для задання часу вручну (потім закоментувати і перезаписати код)
-  lcd.createChar(0, LH);  //Ініціалізація іконки
-  lcd.createChar(1, LL);  //Ініціалізація іконки
-  lcd.createChar(2, LR);  //Ініціалізація іконки
-  lcd.createChar(3, Gr);  //Ініціалізація іконки
-  lcd.createChar(4, Setting);  //Ініціалізація іконки
-  lcd.createChar(5, WaterOff);  //Ініціалізація іконки
-  lcd.createChar(6, WaterOn);  //Ініціалізація іконки
 
-  Lservo.attach(5);  // Пін серво
-  pinMode(BStop, INPUT_PULLUP);  //Встановити пін як вихід з підтяжкою до +
-  pinMode(BWater, INPUT_PULLUP);  //Встановити пін як вихід з підтяжкою до +
-  pinMode( tempPin, INPUT );  //Встановити пін як вихід
-  DataJSON(FileDataName);  // Функція читання jsonData
+  Lservo.attach(Pservo);  // Пін серво
+  pinMode(BStop, INPUT_PULLUP);  //Встановити пін як вхід з підтяжкою до +
+  pinMode(BWater, INPUT_PULLUP);  //Встановити пін як вхід з підтяжкою до +
+  pinMode( Termistor, INPUT );  //Встановити пін як вхід
 
   DravMenu(menu,value,mode,Edirection);  //Функція показу меню
 }
