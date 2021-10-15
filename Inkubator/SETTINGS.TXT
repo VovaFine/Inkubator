@@ -1,0 +1,1 @@
+{"egg":0,"STemp":35.40,"TMode":0,"SHumd":68,"HMode":0,"SFan":30,"FMode":0,"SAiring":20,"AMode":0,"SBuzzer":1,"SServo":0}

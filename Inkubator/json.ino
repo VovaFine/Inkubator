@@ -13,7 +13,10 @@ void jsonFile(const char *filename,const char *fileinput) {  // Функція �
   if(fileinput=="Data"){
     inputData = input;
   }
-  //Serial.print(input);
+  if(fileinput=="Sett"){
+    inputSett = input;
+  }
+  Serial.print(input);
   Serial.println();
   file.close();   // Закрити файл
 }
@@ -45,4 +48,34 @@ void DataJSON(const char *FileDataName) {    // Функція читання js
   Day = rootData[String("Day")];
   Hours = rootData[String("Hours")];
   Min = rootData[String("Min")];
+}
+
+void SetinWrite(const char *FileSattingsName) {  // Функція запису json в файл Data
+  SD.remove("/Settings.txt");
+  File file = SD.open(FileSattingsName, FILE_WRITE);    // Відкрити файл
+  if (!file) {     //При помилці читання файлу 
+    Serial.println(F("Помилка читання файлу WRITE"));  // Вивести в серіал "Помилка читання файлу"
+    return;
+  }
+    file.println("{\"egg\":" + String(egg) + ",\"STemp\":" + String(STemp) + ",\"TMode\":" + String(TMode) + ",\"SHumd\":" + String(SHumd) + ",\"HMode\":" + String(HMode) + ",\"SFan\":" + String(SFan) + ",\"FMode\":" + String(FMode) + ",\"SAiring\":" + String(SAiring) + ",\"AMode\":" + String(AMode) + ",\"SBuzzer\":" + String(SBuzzer) + ",\"SServo\":" + String(SServo) + "}");
+    file.close();   // Закрити файл 
+}
+
+void SetinJSON(const char *FileSattingsName) {    // Функція читання jsonData
+  DynamicJsonBuffer jsonBuffer;
+  jsonFile(FileSattingsName,"Sett");// Перейти до функції запису json в inputData
+  JsonObject& rootSett = jsonBuffer.parseObject(inputSett);
+  delay(50);
+  egg  = rootSett[String("egg")];
+  STemp = rootSett[String("STemp")];
+  SHumd = rootSett[String("SHumd")];
+  SFan = rootSett[String("SFan")];
+  SAiring = rootSett[String("SAiring")];
+  TMode = rootSett[String("TMode")];
+  HMode = rootSett[String("HMode")];
+  FMode = rootSett[String("FMode")];
+  AMode = rootSett[String("AMode")];
+  SBuzzer = rootSett[String("SBuzzer")];
+  SServo = rootSett[String("SServo")];
+  //Serial.println(egg);
 }
