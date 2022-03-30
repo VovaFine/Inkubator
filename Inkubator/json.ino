@@ -16,6 +16,9 @@ void jsonFile(const char *filename,const char *fileinput) {  // Функція �
   if(fileinput=="Sett"){
     inputSett = input;
   }
+  if(fileinput=="Json"){
+    inputJson = input;
+  }
   Serial.print(input);
   Serial.println();
   file.close();   // Закрити файл
@@ -78,4 +81,43 @@ void SetinJSON(const char *FileSattingsName) {    // Функція читанн
   SBuzzer = rootSett[String("SBuzzer")];
   SServo = rootSett[String("SServo")];
   //Serial.println(egg);
+}
+void JsonJSON(const char *FileSattingsName) {    // Функція читання jsonData
+  DynamicJsonBuffer jsonBuffer;
+  jsonFile(FileSattingsName,"Json");// Перейти до функції запису json в inputData
+  JsonObject& rootJson = jsonBuffer.parseObject(inputJson);
+  delay(50);
+  String request =String(IDay) + "_" + String(IHours) + "_" + String(IMin);
+  int pars1 = rootJson[request][0];
+
+  switch (pars1) {
+      case 0:
+        JsonTemp = rootJson[request][1];
+      break;
+
+      case 1:
+        if (rootJson[request][1] == "L"){
+          JsonServo = 106;
+        }else if (rootJson[request][1] == "H"){
+          JsonServo = 89;
+        }else if (rootJson[request][1] == "R"){
+          JsonServo = 69;
+        }
+      break;
+
+      case 2:
+        JsonHumd = rootJson[request][1];
+        //JsonHumd = int(Jsondata[1]);
+      break;
+
+      case 3:
+        JsonFan = rootJson[request][1];
+      break;
+
+      case 4:
+        JsonAir = rootJson[request][1];
+        Serial.println(JsonAir);
+      break;
+      
+    }
 }

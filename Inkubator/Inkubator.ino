@@ -1,16 +1,24 @@
+#include <GyverPID.h>
+#include <PIDtuner.h>
+#include <PIDtuner2.h>
+GyverPID pid(12, 7, 0.5, 500);
+
+#include <GParser.h>
+
 #define BWater 3 // Пін датчика наявності води
 #define BStop 41 // Пін кнопки СТОП
 
 #define Pservo 5  //Пін на якій підключена серво
+#define Pomp 7  //Пін на якій підключена серво
 
 #define CLK 31  //Пін на якій підключено CLK від енкодера
 #define DT 33  //Пін на якій підключено DT від енкодера
 #define SW 35  //Пін на якій підключено SW від енкодера
 
 #define Ds18b20 4  //Пін на якій підключено ds18b20
-#define Termistor A13  //Пін на якій підключено термістор
+  #define Termistor A13  //Пін на якій підключено термістор
 
-const char *filename = "/Test.txt";  // Назва файлу в якому лежить json
+const char *FileJsonName = "/Chicken.txt";  // Назва файлу в якому лежить json
 const char *FileDataName = "/Data.txt";  // Назва файлу в якому лежить json з змінними
 const char *FileSattingsName = "/Settings.txt";  // Назва файлу в якому лежить json
 const char *EGGList[] = {
@@ -41,6 +49,7 @@ String inputSett;
 #include <Servo.h> //  Подключаем библиотеку для работы с серво
 Servo Lservo;
 int pos;//Позиція серво
+int oldangle = 0;
 
 #include <OneWire.h>  //  Подключаем библиотеку для работы по одному піну
 #include <DallasTemperature.h>  //  Подключаем библиотеку для работы с ds18b20
@@ -61,11 +70,20 @@ HTU21D myHumidity;  // Создаем объект для работы с дат
 int temp;  //Змінна для температури
 int humd;  //Змінна для вологості
 
+int setH;
+int setF;
+int setA;
+int setPID;
+boolean pidBlock = 0;
+
 #include <buildTime.h>
 #include <microDS3231.h>
 MicroDS3231 rtc;
 
+int pomp;
+long Ltimepomp;
 long last_time;
+long last_timePID;
 boolean time_flag;
 int dopp_tine_flag;
 boolean Water;
@@ -78,6 +96,7 @@ int Min = 0;//Змінна для запису прочитаного з json
 int IDay = 0;//Змінна для запису днів які пройшли після запуску інкубації (звертатись після обрахунку)
 int IHours = 0;//Змінна для запису годин які пройшли після запуску інкубації (звертатись після обрахунку)
 int IMin = 0;//Змінна для запису хвилин які пройшли після запуску інкубації (звертатись після обрахунку)
+int TimeBuf = 0;
 
 int menu = 0; //Змінна яка використовується в показі меню
 boolean flag; //Змінна яка використовується в показі меню
@@ -99,6 +118,11 @@ boolean AMode;
 boolean SBuzzer;
 boolean SServo;
 
+int JsonTemp;
+int JsonHumd;
+int JsonFan;
+int JsonAir;
+int JsonServo;
 
 void Time (){   //Функція обрахунку часу
   
@@ -421,7 +445,37 @@ void DravMenu(int menu,int number,boolean mode,boolean Edirection){  //Функ�
         }
       }
     break;
+    
+    case 3:
+      lcd.setCursor(3, 0);
+      lcd.print("Experimental");
+      lcd.setCursor(2, 1);
+      lcd.print("Water pump on");
+      lcd.setCursor(0, 2);
+      lcd.print("Left Temp_Sens Right");
+      lcd.setCursor(0, 3);
+      lcd.print(String(temperature[1]));
+      lcd.write(3);
+      lcd.setCursor(15, 3);
+      lcd.print(String(temperature[2]));
+      lcd.write(3);
 
+      if(number == 0){
+        lcd.setCursor(0, 1);
+        lcd.print(" ");
+        lcd.setCursor(0, 0);
+        lcd.print(">");
+      }else if (number == 1){
+        lcd.setCursor(0, 1);
+        lcd.print(">");
+        lcd.setCursor(0, 0);
+        lcd.print(" ");
+      }else if (number == 2){
+        number = 1;
+      }
+      
+    break;
+    
     default:
       if (error == 0){
         if (mode==1){
@@ -477,10 +531,11 @@ void DravMenu(int menu,int number,boolean mode,boolean Edirection){  //Функ�
       }
 
       lcd.setCursor(9, 1);
-      lcd.print(termis,0);
+      lcd.print(termis);
       lcd.write(3);
       lcd.setCursor(17, 1);
-      if(error != 1){lcd.print(String(temperature[2]));
+      if(error != 1){
+      lcd.print(String(temperature[0]));
       }else{lcd.print("--");}
       lcd.write(3);
       
@@ -570,12 +625,34 @@ void DravMenu(int menu,int number,boolean mode,boolean Edirection){  //Функ�
 }
 
 void servo(int angle) {
-  if(angle==89)pos = 0;
-  if(angle==106)pos = 1;
-  if(angle==69)pos = 2;
-  Lservo.write(angle);
+  if(angle==89){
+    pos = 0;
+    if (oldangle > angle){
+      for(int i = oldangle; i >= angle; i--) {
+      Lservo.write(i);
+      delay(10);
+    }}
+    if (oldangle < angle){
+      for(int i = oldangle; i <= angle; i++) {
+      Lservo.write(i);
+      delay(10);
+    }}}
+  if(angle==106){
+    pos = 1;
+    for(int i = oldangle; i <= angle; i++) {
+    Lservo.write(i);
+    delay(10);
+    }
+  }
+  if(angle==69){
+    pos = 2;
+    for(int i = oldangle; i >= angle; i--) {
+    Lservo.write(i);
+    delay(10);
+    }
+  }
+  oldangle = angle;
 }
-
 void beginAll() {
     Serial.begin(9600);  //швидкість Serial
     lcd.begin(20, 4);  //  Инициируем работу с LCD дисплеем, указывая количество (столбцов, строк)
@@ -592,7 +669,7 @@ void beginAll() {
     delay(100);
     SetinJSON(FileSattingsName);
     DataJSON(FileDataName);  // Функція читання jsonData
-    Time ();  //Функція обрахунку часу (працює після читання jsonData)
+    Parsing();
 }
 
 void ds18b20() {
@@ -629,31 +706,138 @@ void termistor() {
   termis = steinhart;
 }
 
+void Parsing(){
+  Time ();  //Функція обрахунку часу (працює після читання jsonData)
+  JsonJSON(FileJsonName);
 
+}
 
 void setup() {
   beginAll();  //Функція ініціалізації всього
+  temp = myHumidity.readTemperature(); // Считываем температуру
+  ds18b20();
   //  rtc.setTime(BUILD_SEC, BUILD_MIN, BUILD_HOUR, BUILD_DAY, BUILD_MONTH, BUILD_YEAR);  //Розкоментувати для задання часу вручну (потім закоментувати і перезаписати код)
-
+  pid.setDirection(NORMAL);
   Lservo.attach(Pservo);  // Пін серво
   pinMode(BStop, INPUT_PULLUP);  //Встановити пін як вхід з підтяжкою до +
   pinMode(BWater, INPUT_PULLUP);  //Встановити пін як вхід з підтяжкою до +
   pinMode( Termistor, INPUT );  //Встановити пін як вхід
-
+  pinMode(7 , OUTPUT);
+  pinMode(6,OUTPUT);
+  pinMode(9,OUTPUT);
+  pinMode(10,OUTPUT);
+  digitalWrite(Pomp,1);
+  digitalWrite(6,0);
+  //Serial.println("set,term,shum");
+  TimeBuf = rtc.getMinutes();
   DravMenu(menu,value,mode,Edirection);  //Функція показу меню
 }
 
 void loop() {
-  //enc1.tick();
   Water = digitalRead(BWater);
-  termistor();
   
+  /*Serial.print(STemp);
+  Serial.print(",");
+  Serial.print(termis);
+  Serial.print(",");
+  Serial.println(pid.output);*/
+  
+  if(TimeBuf != rtc.getMinutes()){
+    TimeBuf = rtc.getMinutes();
+    Parsing();
+    if (humd < setH){
+      digitalWrite(Pomp,0);
+      Ltimepomp = millis();
+      pomp = 1;
+    }
+  }
+  if(pomp == 1 && millis() - Ltimepomp >500 && temp>29){
+    digitalWrite(Pomp,1);
+    pomp = 0;
+  }
+  if (millis() - last_timePID >500){
+     last_timePID = millis();
+     termistor();
+     pid.input = termis;
+     pid.getResult();
+     analogWrite(8, pid.output);
+  }
   if (millis() - last_time > 1000){
     DravMenu(menu,value,mode,Edirection);
     last_time = millis();
     if (time_flag == 1) {
       dopp_tine_flag ++;
+
+      if (termis <= 1 && setPID >= 40 && setPID <= 60 && pidBlock == 0){
+        pid.setpoint = 0;
+        tone(37, 700, 100);
+        pidBlock = 1;
+      }
+      if (termis >= 65 && setPID >= 40 && setPID <= 60 && pidBlock == 0){
+        pid.setpoint = 0;
+        tone(37, 700, 100);
+        pidBlock = 1;
+      }
+      
+      if (TMode == 0){
+          if(pidBlock == 0){
+            //Serial.println("1On");
+            //Serial.println(JsonTemp);
+            
+            setPID = JsonTemp;
+          }
+      }else{
+          if(pidBlock == 0){
+            //Serial.println("1Off");
+            //Serial.println(STemp);
+            setPID = STemp;
+          }
+      }
+      if (HMode == 0){
+          setH = JsonHumd;
+      }else{
+          setH = SHumd;
+      }
+      if (FMode == 0){
+          analogWrite(9,JsonFan);
+      }else{
+          setF = map(SFan, 0, 100, 0, 255);
+          analogWrite(9,setF);
+      }
+      if (humd < setH or temp < setPID){
+        if (AMode == 0){
+            if(JsonAir != 0){
+              digitalWrite(10,1);
+              //JsonAir = map(JsonAir ,0 ,255, 255 , 0);
+           }else{
+             digitalWrite(10,0);
+           }
+        }else{
+            //Serial.println("2: " + String(setA));
+            if(SAiring >= 1){
+              digitalWrite(10,1);
+              //int i = map(SAiring, 0, 100, 0, 255);
+              digitalWrite(6,1);
+            }else{
+              digitalWrite(10,0);
+            }
+        }
+      }else{
+        digitalWrite(10,1);
+      }
+      if (SServo == 0){
+          servo(JsonServo);
+      }else{
+          servo(89);
+      }
+      if(pidBlock == 0){
+          pid.setpoint = setPID;
+      }else{
+          pid.setpoint = 0;
+      }
+      //Serial.println();
       humd = myHumidity.readHumidity();    // Считываем влажность
+      temp = myHumidity.readTemperature(); // Считываем температуру
       if (!SD.begin()&&error == 0) {      // При помилці ініціалізувати SD бібліотеку
         error = 1;
         DravMenu(menu,value,mode,Edirection);  //Функція показу меню
@@ -677,16 +861,15 @@ void loop() {
           beginAll();
         }
       }else if(error>1){
-        if(SBuzzer = 1){
+        if(SBuzzer == 1){
           tone(37, 700, 100);
         }
       }
     }
     time_flag = !time_flag;
   }
-  if(dopp_tine_flag==5){
-    temp = myHumidity.readTemperature(); // Считываем температуру
-    ds18b20();
+  if(dopp_tine_flag==15){
+    ds18b20();// Считываем температуру
     dopp_tine_flag=0;
   }
   
@@ -708,10 +891,10 @@ void loop() {
     if(value <= -1&&menu == 2)value=0;
     if(value >= 8&&menu == 2)value=7;
     DravMenu(menu,value,mode,Edirection);
-    Serial.print("val: ");
-    Serial.println(val);
-    Serial.print("Pflag: ");
-    Serial.println(Pflag);
+    //Serial.print("val: ");
+    //Serial.println(val);
+    //Serial.print("Pflag: ");
+    //Serial.println(Pflag);
     if(val_m == 0){
       if(val <= -1&&menu == 2)val=0;
       if(val >= 2&&menu == 2)val=1;
@@ -743,7 +926,7 @@ void loop() {
        if(SFan <= -1&&menu == 2)SFan=0;
      }
      if (menu == 2&&Pflag == 5){
-       if(val == 1)SAiring = SAiring-5;
+       if(val == 1)SAiring = SAiring-100;
        if(val == 2)AMode = 0;
        if(SAiring <= -1&&menu == 2)SAiring=0;
      }
@@ -763,7 +946,7 @@ void loop() {
      if (menu == 2&&Pflag == 2){
        if(val == 1)STemp = STemp+0.1;
        if(val == 2)TMode = 1;
-       if(STemp >= 40.1&&menu == 2)STemp=40;
+       if(STemp >= 80.1&&menu == 2)STemp=80;
      }
      if (menu == 2&&Pflag == 3){
        if(val == 1)SHumd = SHumd+1;
@@ -776,7 +959,7 @@ void loop() {
        if(SFan >= 101&&menu == 2)SFan=100;
      }
      if (menu == 2&&Pflag == 5){
-       if(val == 1)SAiring = SAiring+5;
+       if(val == 1)SAiring = SAiring+100;
        if(val == 2)AMode = 1;
        if(SAiring >= 101&&menu == 2)SAiring=100;
      }
@@ -790,6 +973,24 @@ void loop() {
    }
  if (enc1.isRelease()) {
     dopp = 0;
+    if (menu == 0&&value == 1){
+      menu = 3;
+      value = 1;  
+      lcd.clear();
+      DravMenu(menu,value,mode,Edirection);
+      delay(100);
+    }
+    if (menu == 3&&value == 1){
+      digitalWrite(Pomp,0);
+      delay(1000);
+      digitalWrite(Pomp,1);
+    }
+    if (menu == 3&&value == 0){
+      menu = 0;
+      value = 0;  
+      lcd.clear();
+      DravMenu(menu,value,mode,Edirection);
+    }
     if (menu == 2){
       if (flag == 0 && value == 1 && menu == 2){
         if (Pflag == 0&&mode == 0){
@@ -903,6 +1104,6 @@ void loop() {
     Edirection = 0;
     lcd.clear();
     DravMenu(menu,value,mode,Edirection);
-    Serial.println("stop");
+    //Serial.println("stop");
   }
 }
