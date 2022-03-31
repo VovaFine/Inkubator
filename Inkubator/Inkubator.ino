@@ -1,3 +1,9 @@
+//Settings
+#define MinTempAir 37//якщо темп. пов. менше цього значення то вкл.---|
+#define HeatTemp 50//тепература для нагріва повітря             <------|
+
+
+
 #include <GyverPID.h>
 #include <PIDtuner.h>
 #include <PIDtuner2.h>
@@ -790,7 +796,11 @@ void loop() {
           if(pidBlock == 0){
             //Serial.println("1Off");
             //Serial.println(STemp);
-            setPID = STemp;
+            if(temp>MinTempAir){
+              setPID = STemp;
+            }else{
+              setPID = HeatTemp;
+            }
           }
       }
       if (HMode == 0){
@@ -946,7 +956,7 @@ void loop() {
      if (menu == 2&&Pflag == 2){
        if(val == 1)STemp = STemp+0.1;
        if(val == 2)TMode = 1;
-       if(STemp >= 80.1&&menu == 2)STemp=80;
+       if(STemp >= 100.1&&menu == 2)STemp=100;
      }
      if (menu == 2&&Pflag == 3){
        if(val == 1)SHumd = SHumd+1;
